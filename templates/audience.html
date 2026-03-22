@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap"
+        rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -37,7 +40,8 @@
             background-color: #050510;
             background-image: radial-gradient(circle at 50% 50%, #1a1a3a 0%, #000 100%);
             color: white;
-            overflow: hidden; /* Fix layout for 1920x1080 */
+            overflow: hidden;
+            /* Fix layout for 1920x1080 */
             width: 1920px;
             height: 1080px;
             transform-origin: top left;
@@ -51,8 +55,15 @@
         }
 
         @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
         }
 
         /* Neon Text Glow */
@@ -75,17 +86,21 @@
         }
 
         @keyframes popup {
-            to { transform: scale(1); }
+            to {
+                transform: scale(1);
+            }
         }
     </style>
 </head>
+
 <body class="relative flex flex-col items-center justify-between p-12">
     <!-- Header / Title -->
     <header class="w-full flex justify-between items-start z-10">
-        <div class="font-display font-black text-6xl text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-neon-gold tracking-widest neon-text">
+        <div
+            class="font-display font-black text-6xl text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-neon-gold tracking-widest neon-text">
             STAGE QUIZ BATTLE
         </div>
-        
+
         <!-- Scoreboard Panel -->
         <div class="w-96 glass-panel rounded-2xl p-6 relative">
             <h2 class="font-display text-2xl text-brand-400 mb-4 border-b border-brand-900 pb-2">RANKING TOP 5</h2>
@@ -99,10 +114,12 @@
     <main class="w-full flex-1 flex flex-col items-center justify-center relative z-0 mt-[-100px]">
         <!-- Answerer Popup Highlight (Hidden by default) -->
         <div id="answererPopup" class="absolute inset-0 flex items-center justify-center z-50 hidden">
-            <div class="glass-panel w-3/4 py-20 px-10 rounded-[3rem] border-4 border-neon-gold text-center popup-anim relative overflow-hidden">
+            <div
+                class="glass-panel w-3/4 py-20 px-10 rounded-[3rem] border-4 border-neon-gold text-center popup-anim relative overflow-hidden">
                 <div class="absolute inset-0 bg-neon-gold opacity-10 blur-xl"></div>
                 <h3 class="font-display text-4xl text-brand-100 mb-4">ANSWER RIGHT NOW!</h3>
-                <div id="answererName" class="font-sans font-black text-8xl text-neon-gold drop-shadow-[0_0_20px_rgba(255,215,0,0.8)]">
+                <div id="answererName"
+                    class="font-sans font-black text-8xl text-neon-gold drop-shadow-[0_0_20px_rgba(255,215,0,0.8)]">
                     Participant Name
                 </div>
             </div>
@@ -112,12 +129,14 @@
         <div class="w-11/12 max-w-7xl">
             <div class="glass-panel rounded-3xl p-16 shadow-[0_0_50px_rgba(6,182,212,0.2)]">
                 <div class="text-3xl text-brand-400 mb-6 font-display">QUESTION</div>
-                <div id="questionContainer" class="font-sans font-bold text-6xl leading-[1.6] tracking-wide text-white min-h-[300px]">
+                <div id="questionContainer"
+                    class="font-sans font-bold text-6xl leading-[1.6] tracking-wide text-white min-h-[300px]">
                     <span id="questionText">Waiting for next question...</span>
                 </div>
-                
+
                 <div id="mediaContainer" class="mt-8 flex justify-center hidden">
-                    <img id="questionMedia" src="" alt="Question Media" class="max-h-[400px] rounded-2xl border-2 border-brand-500 shadow-[0_0_30px_rgba(34,211,238,0.4)]">
+                    <img id="questionMedia" src="" alt="Question Media"
+                        class="max-h-[400px] rounded-2xl border-2 border-brand-500 shadow-[0_0_30px_rgba(34,211,238,0.4)]">
                 </div>
             </div>
         </div>
@@ -127,13 +146,15 @@
     <footer class="w-full pb-8 z-10 flex flex-col items-center">
         <!-- Visual Timer (Simulated for aesthetics) -->
         <div class="w-3/4 h-4 bg-brand-900 rounded-full overflow-hidden border border-brand-500 mb-2">
-            <div id="timerBar" class="h-full bg-gradient-to-r from-brand-400 to-neon-gold w-full transition-all duration-1000 ease-linear"></div>
+            <div id="timerBar"
+                class="h-full bg-gradient-to-r from-brand-400 to-neon-gold w-full transition-all duration-1000 ease-linear">
+            </div>
         </div>
         <div class="font-display text-brand-400 text-2xl tracking-widest" id="timerText">WAITING</div>
     </footer>
 
     <!-- WebSocket & Logic -->
-    <script>
     <script src="/static/js/audience.js"></script>
 </body>
+
 </html>

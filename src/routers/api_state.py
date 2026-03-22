@@ -58,6 +58,11 @@ async def api_show_answer(db: Session = Depends(get_db)):
 @router.post("/judgement")
 async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: Session = Depends(get_db)):
     state = db.query(GameState).filter(GameState.id == 1).first()
+    
+    # 【安全装置】ステータスが「回答中(paused)」の時しか判定できないようにし、二重加算を防止
+    if state.current_state != GameStateEnum.paused:
+        return {"status": "error", "message": "Judgement is only allowed when state is paused."}
+
     user = db.query(User).filter(User.id == user_id).first()
     question = db.query(Question).filter(Question.id == state.current_question_id).first()
     
@@ -66,7 +71,7 @@ async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: S
     db.add(log)
     
     state.current_state = GameStateEnum.waiting
-    state.answering_user_id = None
+    # 【重要】ここでは answering_user_id をリセットしない！（直後にオーディエンスに戻すため）
     db.commit()
 
     users = db.query(User).order_by(User.total_score.desc()).all()
@@ -99,10 +104,13 @@ async def api_return_audience(db: Session = Depends(get_db)):
                     guild = bot.guilds[0]
                     member = guild.get_member(int(user.discord_user_id))
                     if member and member.voice and getattr(member.voice.channel, "type", None) == discord.ChannelType.stage_voice:
-                        asyncio.create_task(member.edit(suppress=True))
+                        # 【重要】確実にAwaitで実行し、Discord APIのエラーを取りこぼさない
+                        await member.edit(suppress=True)
+                        print(f"[DISCORD API] Returned {user.display_name} to audience.", flush=True)
             except Exception as e:
-                print(f"[API ERROR] Return audience failed: {e}")
+                print(f"[API ERROR] Return audience failed: {e}", flush=True)
 
+    # 【重要】無事にオーディエンスに降ろした後、初めて回答者の記憶を消去する
     state.current_state = GameStateEnum.waiting
     state.answering_user_id = None
     db.commit()
