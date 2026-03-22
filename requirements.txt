@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+websockets
+discord.py
+PyNaCl
+SQLAlchemy
+jinja2
+python-multipart

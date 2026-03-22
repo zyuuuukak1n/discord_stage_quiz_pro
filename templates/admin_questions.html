@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Management - Quiz Master</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .modal { display: none; }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen font-sans pb-10">
+
+    <!-- Top Navigation -->
+    <nav class="bg-gray-800 border-b border-gray-700 p-4 sticky top-0 z-10 shadow-lg">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-500">
+                Question Management (問題管理)
+            </h1>
+            <div class="flex gap-4">
+                <a href="/admin" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded font-semibold text-sm transition transition-colors shadow">← Back to Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Left Pane: Add & Import -->
+        <div class="col-span-1 space-y-6">
+            
+            <!-- CSV Import -->
+            <section class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
+                <h2 class="text-xl font-bold text-emerald-400 mb-4 border-b border-gray-700 pb-2">Bulk Import (CSV)</h2>
+                <form id="csvForm" onsubmit="importCSV(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">CSV File</label>
+                        <input type="file" id="csvFile" accept=".csv" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-gray-600 file:text-white hover:file:bg-gray-500 cursor-pointer">
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">Format: <code class="text-pink-400 bg-gray-900 px-1 py-0.5 rounded">question_type, question_text, point_value, sort_order, media_url</code><br>※ question_typeは <code>descriptive</code> または <code>multiple_choice</code></p>
+                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 px-4 py-3 rounded font-bold shadow-md transition-transform active:scale-95">
+                        Upload & Import
+                    </button>
+                </form>
+            </section>
+
+            <!-- Add Single Question -->
+            <section class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700">
+                <h2 class="text-xl font-bold text-cyan-400 mb-4 border-b border-gray-700 pb-2">Add New Question (1件追加)</h2>
+                <form id="addQForm" onsubmit="addQuestion(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Type</label>
+                        <select id="q_type" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                            <option value="descriptive">Descriptive (記述式)</option>
+                            <option value="multiple_choice">Multiple Choice (選択式)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Text</label>
+                        <textarea id="q_text" required rows="3" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white placeholder-gray-500 outline-none focus:ring focus:ring-cyan-500" placeholder="問題文を入力してください..."></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Points</label>
+                            <input type="number" id="q_points" value="10" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Order</label>
+                            <input type="number" id="q_order" value="0" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Media URL (Optional)</label>
+                        <input type="text" id="q_media" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white placeholder-gray-500 outline-none focus:ring focus:ring-cyan-500" placeholder="https://...">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 px-4 py-3 rounded font-bold shadow-md transition-transform active:scale-95">
+                        Save Question
+                    </button>
+                </form>
+            </section>
+        </div>
+
+        <!-- Right Pane: Questions List -->
+        <div class="col-span-1 lg:col-span-2 space-y-6">
+            <section class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 overflow-hidden flex flex-col h-full" style="max-height: calc(100vh - 8rem);">
+                <h2 class="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2 flex justify-between items-center">
+                    <span>Registered Questions</span>
+                    <span class="bg-gray-700 text-sm px-3 py-1 rounded-full"><span id="qCount">{{ questions|length }}</span> Items</span>
+                </h2>
+                
+                <div class="overflow-y-auto flex-1 pr-2 space-y-4" id="questionsList">
+                    {% for q in questions %}
+                    <div class="p-4 bg-gray-900 rounded-lg border border-gray-700 relative hover:border-gray-500 transition-colors shadow-inner" id="q-{{ q.id }}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="bg-gray-700 text-xs px-2 py-1 rounded font-mono shadow-sm">ID: {{ q.id }}</span>
+                                <span class="bg-blue-900 text-blue-300 text-xs px-2 py-1 rounded shadow-sm">Ord: {{ q.sort_order }}</span>
+                                <span class="bg-yellow-900 text-yellow-300 text-xs px-2 py-1 rounded shadow-sm">{{ q.point_value }} pt</span>
+                                <span class="bg-purple-900 text-purple-300 text-xs px-2 py-1 rounded shadow-sm">{{ q.question_type.value }}</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="openEditModal({{ q.id }})" class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded transition-colors shadow">Edit</button>
+                                <button onclick="deleteQuestion({{ q.id }})" class="text-sm bg-red-900/50 hover:bg-red-800 text-red-300 px-3 py-1 rounded transition-colors shadow">Delete</button>
+                            </div>
+                        </div>
+                        <p class="text-gray-100 whitespace-pre-wrap leading-relaxed">{{ q.question_text }}</p>
+                        {% if q.media_url %}
+                        <div class="mt-3 text-sm text-cyan-400 truncate bg-gray-800 p-2 rounded w-fit border border-gray-700">
+                            <a href="{{ q.media_url }}" target="_blank" class="hover:underline flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                {{ q.media_url }}
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-gray-500 py-10">
+                        <p>No questions found. Add some from the left panel!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                <h3 class="text-lg font-bold text-white">Edit Question</h3>
+                <button onclick="closeEditModal()" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6">
+                <form id="editForm" onsubmit="submitEdit(event)" class="space-y-4">
+                    <input type="hidden" id="edit_id">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Type</label>
+                        <select id="edit_type" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                            <option value="descriptive">Descriptive (記述式)</option>
+                            <option value="multiple_choice">Multiple Choice (選択式)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Text</label>
+                        <textarea id="edit_text" required rows="4" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Points</label>
+                            <input type="number" id="edit_points" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">Order</label>
+                            <input type="number" id="edit_order" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">Media URL (Optional)</label>
+                        <input type="text" id="edit_media" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white outline-none focus:ring focus:ring-cyan-500">
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
+                        <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-semibold transition-colors shadow">Cancel</button>
+                        <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold shadow-md transition-transform active:scale-95 text-white">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use the jinja rendered data to populate edit form
+        const questionsData = {
+            {% for q in questions %}
+            "{{ q.id }}": {
+                type: "{{ q.question_type.value }}",
+                text: {{ q.question_text | tojson }},
+                points: {{ q.point_value }},
+                order: {{ q.sort_order }},
+                media: "{{ q.media_url or '' }}"
+            },
+            {% endfor %}
+        };
+
+        async function importCSV(e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.innerText = "Importing...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch("/api/questions/import", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    alert(`Successfully imported ${data.imported} questions!`);
+                    window.location.reload();
+                } else {
+                    alert("Import failed: " + (data.detail || "Unknown error"));
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Upload failed. Server might be down.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                fileInput.value = "";
+            }
+        }
+
+        async function addQuestion(e) {
+            e.preventDefault();
+            const payload = {
+                question_type: document.getElementById('q_type').value,
+                question_text: document.getElementById('q_text').value,
+                point_value: parseInt(document.getElementById('q_points').value) || 0,
+                sort_order: parseInt(document.getElementById('q_order').value) || 0,
+                media_url: document.getElementById('q_media').value || null
+            };
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch("/api/questions", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert("Error adding question.");
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteQuestion(id) {
+            if (!confirm("Are you sure you want to delete this question? This cannot be undone.")) return;
+            try {
+                const res = await fetch(`/api/questions/${id}`, { method: "DELETE" });
+                if (res.ok) {
+                    const el = document.getElementById(`q-${id}`);
+                    if (el) {
+                        el.style.opacity = '0';
+                        setTimeout(() => el.remove(), 300);
+                    }
+                    const countEl = document.getElementById('qCount');
+                    countEl.innerText = Math.max(0, parseInt(countEl.innerText) - 1);
+                } else {
+                    alert("Error deleting question.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function openEditModal(id) {
+            const q = questionsData[id];
+            if (!q) return;
+            
+            document.getElementById('edit_id').value = id;
+            document.getElementById('edit_type').value = q.type;
+            document.getElementById('edit_text').value = q.text;
+            document.getElementById('edit_points').value = q.points;
+            document.getElementById('edit_order').value = q.order;
+            document.getElementById('edit_media').value = q.media;
+            
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        async function submitEdit(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const payload = {
+                question_type: document.getElementById('edit_type').value,
+                question_text: document.getElementById('edit_text').value,
+                point_value: parseInt(document.getElementById('edit_points').value) || 0,
+                sort_order: parseInt(document.getElementById('edit_order').value) || 0,
+                media_url: document.getElementById('edit_media').value || null
+            };
+
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerText;
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/questions/${id}`, {
+                    method: "PUT",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    window.location.reload();
+                } else {
+                    alert("Error updating question.");
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
