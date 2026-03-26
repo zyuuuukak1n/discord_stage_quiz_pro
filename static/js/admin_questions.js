@@ -1,3 +1,31 @@
+// Toggle choice containers visibility based on select
+document.getElementById('q_type').addEventListener('change', function() {
+    const container = document.getElementById('q_choices_container');
+    if (this.value === 'multiple_choice') {
+        container.classList.remove('hidden');
+        const radios = document.querySelectorAll('input[name="q_correct"]');
+        radios.forEach(r => r.required = true);
+    } else {
+        container.classList.add('hidden');
+        const radios = document.querySelectorAll('input[name="q_correct"]');
+        radios.forEach(r => r.required = false);
+    }
+});
+
+document.getElementById('edit_type').addEventListener('change', function() {
+    const container = document.getElementById('edit_choices_container');
+    if (this.value === 'multiple_choice') {
+        container.classList.remove('hidden');
+        const radios = document.querySelectorAll('input[name="edit_correct"]');
+        radios.forEach(r => r.required = true);
+    } else {
+        container.classList.add('hidden');
+        const radios = document.querySelectorAll('input[name="edit_correct"]');
+        radios.forEach(r => r.required = false);
+    }
+});
+
+
 async function importCSV(e) {
     e.preventDefault();
     const fileInput = document.getElementById('csvFile');
@@ -36,12 +64,36 @@ async function importCSV(e) {
 
 async function addQuestion(e) {
     e.preventDefault();
+    const qType = document.getElementById('q_type').value;
+    
+    let choicesArr = null;
+    let correctIdx = null;
+
+    if (qType === 'multiple_choice') {
+        choicesArr = [
+            document.getElementById('q_choice_0').value,
+            document.getElementById('q_choice_1').value,
+            document.getElementById('q_choice_2').value,
+            document.getElementById('q_choice_3').value
+        ];
+        
+        const selectedRadio = document.querySelector('input[name="q_correct"]:checked');
+        if (selectedRadio) {
+            correctIdx = parseInt(selectedRadio.value, 10);
+        } else {
+            alert("正解の選択肢を選択してください。");
+            return;
+        }
+    }
+
     const payload = {
-        question_type: document.getElementById('q_type').value,
+        question_type: qType,
         question_text: document.getElementById('q_text').value,
         point_value: parseInt(document.getElementById('q_points').value) || 0,
         sort_order: parseInt(document.getElementById('q_order').value) || 0,
-        media_url: document.getElementById('q_media').value || null
+        media_url: document.getElementById('q_media').value || null,
+        choices: choicesArr,
+        correct_choice_index: correctIdx
     };
 
     const btn = e.target.querySelector('button[type="submit"]');
@@ -96,6 +148,32 @@ function openEditModal(id) {
     document.getElementById('edit_order').value = q.order;
     document.getElementById('edit_media').value = q.media;
     
+    // Clear choices first
+    for(let i=0; i<4; i++) {
+        const input = document.getElementById(`edit_choice_${i}`);
+        if(input) input.value = '';
+    }
+    const radios = document.querySelectorAll('input[name="edit_correct"]');
+    radios.forEach(r => r.checked = false);
+
+    // Populate choices if available
+    if (q.type === 'multiple_choice' && q.choices) {
+        q.choices.forEach((choice, i) => {
+            if(i < 4) {
+                document.getElementById(`edit_choice_${i}`).value = choice.text;
+                if(choice.is_correct) {
+                    const radio = document.querySelector(`input[name="edit_correct"][value="${i}"]`);
+                    if(radio) radio.checked = true;
+                }
+            }
+        });
+        document.getElementById('edit_choices_container').classList.remove('hidden');
+        radios.forEach(r => r.required = true);
+    } else {
+        document.getElementById('edit_choices_container').classList.add('hidden');
+        radios.forEach(r => r.required = false);
+    }
+    
     document.getElementById('editModal').classList.add('active');
 }
 
@@ -106,12 +184,36 @@ function closeEditModal() {
 async function submitEdit(e) {
     e.preventDefault();
     const id = document.getElementById('edit_id').value;
+    const qType = document.getElementById('edit_type').value;
+
+    let choicesArr = null;
+    let correctIdx = null;
+
+    if (qType === 'multiple_choice') {
+        choicesArr = [
+            document.getElementById('edit_choice_0').value,
+            document.getElementById('edit_choice_1').value,
+            document.getElementById('edit_choice_2').value,
+            document.getElementById('edit_choice_3').value
+        ];
+        
+        const selectedRadio = document.querySelector('input[name="edit_correct"]:checked');
+        if (selectedRadio) {
+            correctIdx = parseInt(selectedRadio.value, 10);
+        } else {
+            alert("正解の選択肢を選択してください。");
+            return;
+        }
+    }
+
     const payload = {
-        question_type: document.getElementById('edit_type').value,
+        question_type: qType,
         question_text: document.getElementById('edit_text').value,
         point_value: parseInt(document.getElementById('edit_points').value) || 0,
         sort_order: parseInt(document.getElementById('edit_order').value) || 0,
-        media_url: document.getElementById('edit_media').value || null
+        media_url: document.getElementById('edit_media').value || null,
+        choices: choicesArr,
+        correct_choice_index: correctIdx
     };
 
     const btn = e.target.querySelector('button[type="submit"]');

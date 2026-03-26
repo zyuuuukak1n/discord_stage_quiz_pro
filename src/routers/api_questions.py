@@ -16,6 +16,8 @@ class QuestionCreate(BaseModel):
     point_value: int = 10
     media_url: Optional[str] = None
     sort_order: int = 0
+    choices: Optional[list[str]] = None
+    correct_choice_index: Optional[int] = None
 
 @router.get("")
 async def get_questions(db: Session = Depends(get_db)):
@@ -33,6 +35,20 @@ async def create_question(question: QuestionCreate, db: Session = Depends(get_db
         sort_order=question.sort_order
     )
     db.add(new_q)
+    db.flush()
+    
+    if q_type == QuestionType.multiple_choice and question.choices:
+        for i, choice_text in enumerate(question.choices):
+            if choice_text and choice_text.strip():
+                is_correct = (i == question.correct_choice_index)
+                new_choice = Choice(
+                    question_id=new_q.id,
+                    choice_text=choice_text.strip(),
+                    is_correct=is_correct,
+                    sort_order=i + 1
+                )
+                db.add(new_choice)
+                
     db.commit()
     db.refresh(new_q)
     return new_q
@@ -43,11 +59,28 @@ async def update_question(q_id: int, question: QuestionCreate, db: Session = Dep
     if not q:
         raise HTTPException(status_code=404, detail="Question not found")
     
-    q.question_type = QuestionType.descriptive if question.question_type == "descriptive" else QuestionType.multiple_choice
+    q_type = QuestionType.descriptive if question.question_type == "descriptive" else QuestionType.multiple_choice
+    q.question_type = q_type
     q.question_text = question.question_text
     q.point_value = question.point_value
     q.media_url = question.media_url
     q.sort_order = question.sort_order
+    
+    # Delete existing choices
+    db.query(Choice).filter(Choice.question_id == q.id).delete()
+    
+    # Insert new choices if multiple choice
+    if q_type == QuestionType.multiple_choice and question.choices:
+        for i, choice_text in enumerate(question.choices):
+            if choice_text and choice_text.strip():
+                is_correct = (i == question.correct_choice_index)
+                new_choice = Choice(
+                    question_id=q.id,
+                    choice_text=choice_text.strip(),
+                    is_correct=is_correct,
+                    sort_order=i + 1
+                )
+                db.add(new_choice)
     
     db.commit()
     db.refresh(q)
@@ -58,6 +91,9 @@ async def delete_question(q_id: int, db: Session = Depends(get_db)):
     q = db.query(Question).filter(Question.id == q_id).first()
     if not q:
         raise HTTPException(status_code=404, detail="Question not found")
+    
+    # First delete choices related to this question
+    db.query(Choice).filter(Choice.question_id == q.id).delete()
     db.delete(q)
     db.commit()
     return {"status": "deleted"}
@@ -106,16 +142,24 @@ async def import_questions(file: UploadFile = File(...), db: Session = Depends(g
         db.add(new_q)
         db.flush() # ID取得のため
         
-        # 選択肢の追加処理
-        for i in range(1, 5):
-            choice_text = row.get(f"choice_{i}")
-            if choice_text and choice_text.strip():
-                new_choice = Choice(
-                    question_id=new_q.id,
-                    choice_text=choice_text.strip(),
-                    sort_order=i
-                )
-                db.add(new_choice)
+        if q_type == QuestionType.multiple_choice:
+            try:
+                correct_idx = int(row.get("correct_choice", 0)) - 1
+            except ValueError:
+                correct_idx = -1
+                
+            # 選択肢の追加処理
+            for i in range(1, 5):
+                choice_text = row.get(f"choice_{i}")
+                if choice_text and choice_text.strip():
+                    is_correct = (i - 1 == correct_idx)
+                    new_choice = Choice(
+                        question_id=new_q.id,
+                        choice_text=choice_text.strip(),
+                        is_correct=is_correct,
+                        sort_order=i
+                    )
+                    db.add(new_choice)
 
         imported_count += 1
         
