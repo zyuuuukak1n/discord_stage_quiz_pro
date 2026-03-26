@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..models import Question, QuestionType
+from ..models import Question, QuestionType, Choice
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
 
@@ -104,6 +104,19 @@ async def import_questions(file: UploadFile = File(...), db: Session = Depends(g
             media_url=media_url
         )
         db.add(new_q)
+        db.flush() # ID取得のため
+        
+        # 選択肢の追加処理
+        for i in range(1, 5):
+            choice_text = row.get(f"choice_{i}")
+            if choice_text and choice_text.strip():
+                new_choice = Choice(
+                    question_id=new_q.id,
+                    choice_text=choice_text.strip(),
+                    sort_order=i
+                )
+                db.add(new_choice)
+
         imported_count += 1
         
     db.commit()

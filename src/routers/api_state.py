@@ -4,7 +4,7 @@ import asyncio
 import discord
 
 from ..database import get_db
-from ..models import GameState, GameStateEnum, User, Question, ScoreLog
+from ..models import GameState, GameStateEnum, User, Question, ScoreLog, Choice
 from ..websocket_manager import manager
 
 router = APIRouter(prefix="/api/state", tags=["state"])
@@ -55,6 +55,21 @@ async def api_show_answer(db: Session = Depends(get_db)):
     await manager.broadcast_state({"action": "SHOW_ANSWER"})
     return {"status": "ok"}
 
+@router.post("/show_choices")
+async def api_show_choices(db: Session = Depends(get_db)):
+    state = db.query(GameState).filter(GameState.id == 1).first()
+    if not state or not state.current_question_id:
+        return {"status": "error", "message": "No active question."}
+        
+    choices = db.query(Choice).filter(Choice.question_id == state.current_question_id).order_by(Choice.sort_order).all()
+    choice_texts = [c.choice_text for c in choices]
+    
+    await manager.broadcast_state({
+        "action": "SHOW_CHOICES",
+        "choices": choice_texts
+    })
+    return {"status": "ok", "choices": choice_texts}
+
 @router.post("/judgement")
 async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: Session = Depends(get_db)):
     state = db.query(GameState).filter(GameState.id == 1).first()
@@ -67,7 +82,7 @@ async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: S
     question = db.query(Question).filter(Question.id == state.current_question_id).first()
     
     user.total_score += point_change
-    log = ScoreLog(user_id=user.id, question_id=question.id, score_change=point_change, reason="Correct" if is_correct else "Incorrect")
+    log = ScoreLog(user_id=user.id, question_id=question.id if question else None, score_change=point_change, reason="Correct" if is_correct else "Incorrect")
     db.add(log)
     
     state.current_state = GameStateEnum.waiting
@@ -128,3 +143,47 @@ async def api_state_reset(db: Session = Depends(get_db)):
 
     await manager.broadcast_state({"action": "RESET_STATE"})
     return {"status": "ok"}
+
+@router.post("/hard_reset")
+async def api_hard_reset(db: Session = Depends(get_db)):
+    try:
+        db.query(ScoreLog).delete()
+        db.query(User).delete()
+        db.query(Question).update({"is_used": False})
+        
+        state = db.query(GameState).filter(GameState.id == 1).first()
+        if state:
+            state.current_state = GameStateEnum.waiting
+            state.current_question_id = None
+            state.answering_user_id = None
+            
+        db.commit()
+        await manager.broadcast_state({"action": "RESET_STATE"})
+        return {"status": "ok"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+
+@router.put("/users/{user_id}/score")
+async def api_update_user_score(user_id: int, score: int, db: Session = Depends(get_db)):
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return {"status": "error", "message": "User not found."}
+            
+        old_score = user.total_score
+        diff = score - old_score
+        user.total_score = score
+        
+        log = ScoreLog(user_id=user.id, question_id=None, score_change=diff, reason="Manual Edit")
+        db.add(log)
+        
+        db.commit()
+        
+        # Rankings might have changed, broadcast sync state if necessary? 
+        # For simplicity, we can let frontend reload, or we can broadcast RESET_STATE/SYNC_STATE.
+        # Admin UI directly reloads the page.
+        return {"status": "ok", "new_score": user.total_score}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}

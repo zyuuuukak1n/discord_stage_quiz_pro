@@ -35,6 +35,9 @@ function connectWebSocket() {
         else if (data.action === "SHOW_ANSWER") {
             document.getElementById('statusBox').innerText = "SHOWING ANSWER";
         }
+        else if (data.action === "SHOW_CHOICES") {
+            document.getElementById('statusBox').innerText = "SHOWING CHOICES";
+        }
         else if (data.action === "JUDGEMENT") {
             document.getElementById('statusBox').innerText = "WAITING";
             document.getElementById('currentAnswererName').innerText = "Waiting...";
@@ -122,6 +125,40 @@ async function judge(isCorrect) {
             alert("エラー: " + res.message);
         } else {
             console.log("Judgement successful:", res);
+        }
+    } catch (err) {
+        console.error("API Call error:", err);
+    }
+}
+
+async function factoryReset() {
+    const code = prompt("🚨 警告 🚨\n本当にすべてのデータ（ユーザー、スコア、問題の進行状態）を削除し、初期状態に戻しますか？\n実行する場合は「RESET」と入力してください。");
+    if (code === "RESET") {
+        await apiCall('/api/state/hard_reset');
+        alert("Factory Reset が完了しました。ページをリロードします。");
+        window.location.reload();
+    } else if (code !== null) {
+        alert("入力が間違っています。キャンセルされました。");
+    }
+}
+
+async function editUserScore(userId, displayName, currentScore) {
+    const newScoreStr = prompt(`✏️ ${displayName} の新しいスコアを入力してください:`, currentScore);
+    if (newScoreStr === null || newScoreStr === "") return;
+    
+    const newScore = parseInt(newScoreStr, 10);
+    if (isNaN(newScore)) {
+        alert("無効な数値です。");
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/state/users/${userId}/score?score=${newScore}`, { method: 'PUT' });
+        const res = await response.json();
+        if (res.status === "ok") {
+            window.location.reload(); // リロードして画面更新
+        } else {
+            alert("エラー: " + res.message);
         }
     } catch (err) {
         console.error("API Call error:", err);

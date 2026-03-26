@@ -22,6 +22,8 @@
                 <button onclick="apiCall('/api/state/reset')"
                     class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded font-semibold text-sm transition transition-colors shadow">Emergency
                     Reset State</button>
+                <button onclick="factoryReset()"
+                    class="bg-gray-900 border border-red-600 text-red-500 hover:bg-red-900 px-4 py-2 rounded font-bold text-sm transition transition-colors shadow">🚨 Factory Reset (完全初期化)</button>
             </div>
         </div>
     </nav>
@@ -56,7 +58,7 @@
                     </button>
                 </div>
 
-                <div class="grid grid-cols-3 gap-4 border-t border-gray-700 pt-6">
+                <div class="grid grid-cols-4 gap-4 border-t border-gray-700 pt-6">
                     <button onclick="apiCall('/api/state/pause')"
                         class="bg-yellow-600 hover:bg-yellow-500 px-4 py-3 rounded font-bold shadow-md">
                         ⏸ Pause (一時停止)
@@ -68,6 +70,10 @@
                     <button onclick="apiCall('/api/state/show_answer')"
                         class="bg-purple-600 hover:bg-purple-500 px-4 py-3 rounded font-bold shadow-md">
                         👁 Show Answer (全文表示)
+                    </button>
+                    <button onclick="apiCall('/api/state/show_choices')"
+                        class="bg-blue-600 hover:bg-blue-500 px-4 py-3 rounded font-bold shadow-md">
+                        🔠 Show Choices (選択肢表示)
                     </button>
                 </div>
             </section>
@@ -132,17 +138,18 @@
             </section>
 
             <section class="bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-700 max-h-[600px] overflow-y-auto">
-                <h2 class="text-xl font-bold text-cyan-400 mb-4 border-b border-gray-700 pb-2 flex justify-between">
-                    <span>Scoreboard</span>
-                    <button class="text-sm bg-gray-700 px-2 rounded hover:bg-gray-600"
-                        onclick="alert('Feature coming soon: Manual CRUD for scores.')">Edit</button>
+                <h2 class="text-xl font-bold text-cyan-400 mb-4 border-b border-gray-700 pb-2">
+                    Scoreboard
                 </h2>
 
                 <div class="space-y-3" id="adminRanking">
                     {% for u in users %}
                     <div class="flex justify-between items-center p-3 bg-gray-900 rounded border border-gray-700">
                         <div class="font-semibold">{{ u.display_name }}</div>
-                        <div class="text-cyan-400 font-black">{{ u.total_score }} pt</div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-cyan-400 font-black">{{ u.total_score }} pt</span>
+                            <button onclick="editUserScore({{ u.id }}, '{{ u.display_name }}', {{ u.total_score }})" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded border border-gray-600">✏️ Edit</button>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
@@ -154,7 +161,7 @@
         // 各問題のポイントデータを保持
         const questionsData = {
             {% for q in questions %}
-        "{{ q.id }}": { points: { { q.point_value } } },
+        "{{ q.id }}": { points: {{ q.point_value }} },
         {% endfor %}
         };
     </script>

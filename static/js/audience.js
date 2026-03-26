@@ -76,6 +76,14 @@ function startTypingEffect() {
     }, 80);
 }
 
+function hideChoices() {
+    const choicesContainer = document.getElementById("choicesContainer");
+    if (choicesContainer) {
+        choicesContainer.classList.add("hidden", "translate-y-10", "opacity-0");
+        choicesContainer.classList.remove("translate-y-0", "opacity-100");
+    }
+}
+
 function handleAction(data) {
     console.log("WS Data received:", data);
     
@@ -100,6 +108,7 @@ function handleAction(data) {
         currentTypedIndex = 0;
         isPaused = false;
         elAnswererPopup.classList.add("hidden");
+        hideChoices();
         startTypingEffect();
         
         elTimerText.innerText = "QUESTION IN PROGRESS...";
@@ -135,8 +144,51 @@ function handleAction(data) {
         elAnswererPopup.classList.add("hidden");
         elTimerText.innerText = "ANSWER REVEAL";
     }
+    else if (data.action === "SHOW_CHOICES") {
+        const choicesGrid = document.getElementById("choicesGrid");
+        const choicesContainer = document.getElementById("choicesContainer");
+        if (choicesGrid && choicesContainer && data.choices && data.choices.length > 0) {
+            choicesGrid.innerHTML = "";
+            const labels = ["A", "B", "C", "D"];
+            const outerColors = [
+                "border-pink-500 shadow-[0_0_20px_theme(colors.pink.500)]",
+                "border-cyan-500 shadow-[0_0_20px_theme(colors.cyan.500)]",
+                "border-emerald-500 shadow-[0_0_20px_theme(colors.emerald.500)]",
+                "border-yellow-500 shadow-[0_0_20px_theme(colors.yellow.500)]"
+            ];
+            const textGlows = [
+                "text-pink-400 drop-shadow-[0_0_10px_theme(colors.pink.500)]",
+                "text-cyan-400 drop-shadow-[0_0_10px_theme(colors.cyan.500)]",
+                "text-emerald-400 drop-shadow-[0_0_10px_theme(colors.emerald.500)]",
+                "text-yellow-400 drop-shadow-[0_0_10px_theme(colors.yellow.500)]"
+            ];
+            
+            data.choices.forEach((choice, i) => {
+                const label = labels[i] || "";
+                const boxColor = outerColors[i % outerColors.length];
+                const letterColor = textGlows[i % textGlows.length];
+                const div = document.createElement("div");
+                div.className = `glass-panel rounded-2xl p-6 flex items-center gap-6 border-2 bg-opacity-20 hover:scale-105 transition-transform duration-300 ${boxColor}`;
+                div.innerHTML = `
+                    <div class="font-display text-6xl font-black w-20 text-center ${letterColor}">${label}</div>
+                    <div class="font-sans text-4xl font-bold text-white flex-1 break-words leading-snug">${choice}</div>
+                `;
+                choicesGrid.appendChild(div);
+            });
+            
+            choicesContainer.classList.remove("hidden");
+            // Delay for transition effect
+            setTimeout(() => {
+                choicesContainer.classList.remove("translate-y-10", "opacity-0");
+                choicesContainer.classList.add("translate-y-0", "opacity-100");
+            }, 50);
+            
+            elTimerText.innerText = "SELECT YOUR ANSWER!";
+        }
+    }
     else if (data.action === "JUDGEMENT") {
         elAnswererPopup.classList.add("hidden");
+        hideChoices();
         if (data.ranking) updateRanking(data.ranking);
         
         const judgmentOverlay = document.createElement("div");
@@ -161,6 +213,7 @@ function handleAction(data) {
         elQuestionText.innerText = "WAITING FOR NEXT QUESTION...";
         elContainer.classList.remove("typing-cursor");
         elAnswererPopup.classList.add("hidden");
+        hideChoices();
         elTimerText.innerText = "WAITING";
     }
 }
