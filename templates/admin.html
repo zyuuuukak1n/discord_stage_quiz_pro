@@ -154,11 +154,11 @@
         // 各問題のポイントデータを保持
         const questionsData = {
             {% for q in questions %}
-        "{{ q.id }}": { points: {{ q.point_value }} },
+        "{{ q.id }}": { points: { { q.point_value } } },
         {% endfor %}
         };
     </script>
-    <script src="/static/js/admin.js"></script>
+    <script src="/static/js/admin.js?v=2"></script>
 </body>
 
 </html>
