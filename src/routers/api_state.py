@@ -4,7 +4,7 @@ import asyncio
 import discord
 
 from ..database import get_db
-from ..models import GameState, GameStateEnum, User, Question, ScoreLog, Choice
+from ..models import GameState, GameStateEnum, User, Question, ScoreLog, Choice, ProtectedUser
 from ..websocket_manager import manager
 
 router = APIRouter(prefix="/api/state", tags=["state"])
@@ -114,7 +114,15 @@ async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: S
             voice_client = bot.voice_clients[0]
             if getattr(voice_client.channel, "type", None) == discord.ChannelType.stage_voice:
                 channel = voice_client.channel
+                # 保護リストの取得
+                protected_users = {p.discord_user_id for p in db.query(ProtectedUser).all()}
+                
                 for member in channel.members:
+                    # 保護リストにあるユーザーはスキップ
+                    if str(member.id) in protected_users:
+                        print(f"[DISCORD API] Skipping protected user {member.display_name}", flush=True)
+                        continue
+                        
                     if not member.bot and member.voice:
                         if member.voice.suppress == False or member.voice.requested_to_speak_at is not None:
                             asyncio.create_task(member.edit(suppress=True))
@@ -137,7 +145,6 @@ async def api_return_audience(db: Session = Depends(get_db)):
                     guild = bot.guilds[0]
                     member = guild.get_member(int(user.discord_user_id))
                     if member and member.voice and getattr(member.voice.channel, "type", None) == discord.ChannelType.stage_voice:
-                        # 【重要】確実にAwaitで実行し、Discord APIのエラーを取りこぼさない
                         await member.edit(suppress=True)
                         print(f"[DISCORD API] Returned {user.display_name} to audience.", flush=True)
             except Exception as e:

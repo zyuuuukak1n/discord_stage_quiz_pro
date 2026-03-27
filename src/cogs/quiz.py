@@ -4,7 +4,7 @@ import asyncio
 import traceback
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
-from ..models import GameState, GameStateEnum, User
+from ..models import GameState, GameStateEnum, User, ProtectedUser
 from ..websocket_manager import manager
 
 class QuizCog(commands.Cog):
@@ -140,6 +140,72 @@ class QuizCog(commands.Cog):
             req = "✋挙手あり" if getattr(m.voice, "requested_to_speak_at", None) else "挙手なし"
             msg += f"- {m.display_name}: {req}\n"
         await ctx.send(msg)
+
+    @commands.hybrid_command(name="protect", description="指定したメンバーをオーディエンス一斉降格から保護します")
+    async def protect(self, ctx: commands.Context, member: discord.Member):
+        from ..models import ProtectedUser
+        from ..database import SessionLocal
+        
+        await ctx.defer()
+        db = SessionLocal()
+        try:
+            existing = db.query(ProtectedUser).filter(ProtectedUser.discord_user_id == str(member.id)).first()
+            if existing:
+                await ctx.send(f"⚠️ {member.display_name} は既に保護リストに登録されています。")
+            else:
+                new_protected = ProtectedUser(discord_user_id=str(member.id))
+                db.add(new_protected)
+                db.commit()
+                await ctx.send(f"🛡️ {member.display_name} を保護リストに登録しました。（一斉降格の対象外になります）")
+        except Exception as e:
+            await ctx.send(f"処理中にエラーが発生しました: {e}")
+        finally:
+            db.close()
+
+    @commands.hybrid_command(name="unprotect", description="指定したメンバーを保護リストから解除します")
+    async def unprotect(self, ctx: commands.Context, member: discord.Member):
+        from ..models import ProtectedUser
+        from ..database import SessionLocal
+        
+        await ctx.defer()
+        db = SessionLocal()
+        try:
+            existing = db.query(ProtectedUser).filter(ProtectedUser.discord_user_id == str(member.id)).first()
+            if not existing:
+                await ctx.send(f"⚠️ {member.display_name} は保護リストに登録されていません。")
+            else:
+                db.delete(existing)
+                db.commit()
+                await ctx.send(f"🗑️ {member.display_name} を保護リストから解除しました。")
+        except Exception as e:
+            await ctx.send(f"処理中にエラーが発生しました: {e}")
+        finally:
+            db.close()
+
+    @commands.hybrid_command(name="protect_list", description="現在保護リストに登録されているユーザー一覧を表示します")
+    async def protect_list(self, ctx: commands.Context):
+        from ..models import ProtectedUser
+        from ..database import SessionLocal
+        
+        await ctx.defer()
+        db = SessionLocal()
+        try:
+            protected = db.query(ProtectedUser).all()
+            if not protected:
+                await ctx.send("現在保護されているユーザーはいません。")
+            else:
+                mentions = []
+                for p in protected:
+                    user = ctx.guild.get_member(int(p.discord_user_id)) if ctx.guild else None
+                    if user:
+                        mentions.append(user.mention)
+                    else:
+                        mentions.append(f"<@{p.discord_user_id}>")
+                await ctx.send(f"🛡️ **保護リスト一覧**:\n" + "\n".join(mentions))
+        except Exception as e:
+            await ctx.send(f"処理中にエラーが発生しました: {e}")
+        finally:
+            db.close()
 
 async def setup(bot):
     await bot.add_cog(QuizCog(bot))

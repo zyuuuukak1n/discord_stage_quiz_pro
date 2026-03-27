@@ -71,3 +71,8 @@ class ScoreLog(Base):
 
     user = relationship("User", back_populates="score_logs")
     question = relationship("Question", back_populates="score_logs")
+
+class ProtectedUser(Base):
+    __tablename__ = "protected_users"
+    id = Column(Integer, primary_key=True, index=True)
+    discord_user_id = Column(String, unique=True, index=True, nullable=False)
