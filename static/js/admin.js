@@ -3,6 +3,25 @@ const wsUrl = `${wsProtocol}//${window.location.host}/ws/audience`;
 
 let ws;
 
+function refreshScoreboard(ranking) {
+    const adminRanking = document.getElementById('adminRanking');
+    if (!adminRanking) return;
+    
+    adminRanking.innerHTML = '';
+    ranking.forEach(u => {
+        const row = document.createElement('div');
+        row.className = "flex justify-between items-center p-3 bg-gray-900 rounded border border-gray-700";
+        row.innerHTML = `
+            <div class="font-semibold">${u.display_name}</div>
+            <div class="flex items-center gap-3">
+                <span class="text-cyan-400 font-black">${u.score} pt</span>
+                <button onclick="editUserScore(${u.id}, '${u.display_name}', ${u.score})" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded border border-gray-600">✏️ Edit</button>
+            </div>
+        `;
+        adminRanking.appendChild(row);
+    });
+}
+
 // 自動再接続機能付きのWebSocket接続
 function connectWebSocket() {
     ws = new WebSocket(wsUrl);
@@ -36,13 +55,15 @@ function connectWebSocket() {
             document.getElementById('statusBox').innerText = "SHOWING ANSWER";
         }
         else if (data.action === "SHOW_CHOICES") {
-            document.getElementById('statusBox').innerText = "SHOWING CHOICES";
+            document.getElementById('statusBox').innerText = "ASKING";
         }
         else if (data.action === "JUDGEMENT") {
             document.getElementById('statusBox').innerText = "WAITING";
             document.getElementById('currentAnswererName').innerText = "Waiting...";
             document.getElementById('currentAnswererId').value = "";
-            window.location.reload();
+            if (data.ranking) {
+                refreshScoreboard(data.ranking);
+            }
         }
         else if (data.action === "RESET_STATE") {
             document.getElementById('statusBox').innerText = "WAITING";
@@ -65,7 +86,7 @@ function updatePointsFields() {
     const select = document.getElementById("questionSelect");
     if (select && select.value && typeof questionsData !== 'undefined' && questionsData[select.value]) {
         document.getElementById('correctPoints').value = questionsData[select.value].points;
-        document.getElementById('incorrectPoints').value = -questionsData[select.value].points;
+        document.getElementById('incorrectPoints').value = 0;
     }
 }
 

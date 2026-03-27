@@ -64,6 +64,10 @@ async def api_show_choices(db: Session = Depends(get_db)):
     choices = db.query(Choice).filter(Choice.question_id == state.current_question_id).order_by(Choice.sort_order).all()
     choice_texts = [c.choice_text for c in choices]
     
+    # 選択肢が表示された瞬間に早押し受付状態にする
+    state.current_state = GameStateEnum.asking
+    db.commit()
+    
     await manager.broadcast_state({
         "action": "SHOW_CHOICES",
         "choices": choice_texts
@@ -103,6 +107,20 @@ async def api_judgement(user_id: int, is_correct: bool, point_change: int, db: S
     audio_file = "audio/correct.mp3" if is_correct else "audio/incorrect.mp3"
     if hasattr(bot, 'play_audio_active_vc'):
         asyncio.create_task(bot.play_audio_active_vc(audio_file))
+        
+    # 現在のステージチャンネルにいる全員の挙手を下ろし、現在の回答者をオーディエンスに降ろす処理
+    try:
+        if bot.voice_clients:
+            voice_client = bot.voice_clients[0]
+            if getattr(voice_client.channel, "type", None) == discord.ChannelType.stage_voice:
+                channel = voice_client.channel
+                for member in channel.members:
+                    if not member.bot and member.voice:
+                        if member.voice.suppress == False or member.voice.requested_to_speak_at is not None:
+                            asyncio.create_task(member.edit(suppress=True))
+                            print(f"[DISCORD API] Resetting hand-raise/speaker status for {member.display_name}", flush=True)
+    except Exception as e:
+        print(f"[API ERROR] Failed to reset audience hand raises: {e}", flush=True)
     
     return {"status": "ok", "point": point_change}
 
@@ -179,10 +197,6 @@ async def api_update_user_score(user_id: int, score: int, db: Session = Depends(
         db.add(log)
         
         db.commit()
-        
-        # Rankings might have changed, broadcast sync state if necessary? 
-        # For simplicity, we can let frontend reload, or we can broadcast RESET_STATE/SYNC_STATE.
-        # Admin UI directly reloads the page.
         return {"status": "ok", "new_score": user.total_score}
     except Exception as e:
         db.rollback()
