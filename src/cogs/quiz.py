@@ -10,6 +10,7 @@ from ..websocket_manager import manager
 class QuizCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.hand_raise_lock = asyncio.Lock()
 
     async def _ensure_speaker(self, voice_client):
         if voice_client and isinstance(voice_client.channel, discord.StageChannel):
@@ -55,51 +56,52 @@ class QuizCog(commands.Cog):
             if is_stage and raised_hand_now:
                 print(f"[ACTION] ✋ Hand raise detected for {member.display_name}!", flush=True)
                 
-                db: Session = SessionLocal()
-                try:
-                    game_state = db.query(GameState).filter(GameState.id == 1).first()
-                    current_status_val = getattr(game_state.current_state, 'value', game_state.current_state) if game_state else None
-                    print(f"[DB] Current status: {current_status_val}", flush=True)
-
-                    if current_status_val == "asking":
-                        game_state.current_state = GameStateEnum.paused
-                        
-                        quiz_user = db.query(User).filter(User.discord_user_id == str(member.id)).first()
-                        if not quiz_user:
-                            quiz_user = User(discord_user_id=str(member.id), display_name=member.display_name)
-                            db.add(quiz_user)
+                async with self.hand_raise_lock:
+                    db: Session = SessionLocal()
+                    try:
+                        game_state = db.query(GameState).filter(GameState.id == 1).first()
+                        current_status_val = getattr(game_state.current_state, 'value', game_state.current_state) if game_state else None
+                        print(f"[DB] Current status: {current_status_val}", flush=True)
+    
+                        if current_status_val == "asking":
+                            game_state.current_state = GameStateEnum.paused
+                            
+                            quiz_user = db.query(User).filter(User.discord_user_id == str(member.id)).first()
+                            if not quiz_user:
+                                quiz_user = User(discord_user_id=str(member.id), display_name=member.display_name)
+                                db.add(quiz_user)
+                                db.commit()
+                                db.refresh(quiz_user)
+    
+                            game_state.answering_user_id = quiz_user.id
+                            
+                            user_id = quiz_user.id
+                            display_name = quiz_user.display_name
                             db.commit()
-                            db.refresh(quiz_user)
-
-                        game_state.answering_user_id = quiz_user.id
-                        
-                        user_id = quiz_user.id
-                        display_name = quiz_user.display_name
-                        db.commit()
-
-                        print(f"[BROADCAST] Sending PAUSE_QUESTION...", flush=True)
-                        await manager.broadcast_state({
-                            "action": "PAUSE_QUESTION",
-                            "user_id": user_id,
-                            "display_name": display_name
-                        })
-                        
-                        print(f"[DISCORD API] Unsuppressing {display_name}...", flush=True)
-                        await member.edit(suppress=False)
-                        
-                        if member.voice and member.voice.channel:
-                            print(f"[AUDIO] Playing pressed.mp3...", flush=True)
-                            await self.play_audio(member.voice.channel, "audio/pressed.mp3")
-
-                        print(f"[SUCCESS] ✨ All actions completed for {display_name}!", flush=True)
-
-                    else:
-                        print(f"[IGNORED] Status was {current_status_val}, ignoring hand raise.", flush=True)
-                except Exception as inner_e:
-                    print(f"[CRITICAL LOGIC ERROR] {inner_e}", flush=True)
-                    traceback.print_exc()
-                finally:
-                    db.close()
+    
+                            print(f"[BROADCAST] Sending PAUSE_QUESTION...", flush=True)
+                            await manager.broadcast_state({
+                                "action": "PAUSE_QUESTION",
+                                "user_id": user_id,
+                                "display_name": display_name
+                            })
+                            
+                            print(f"[DISCORD API] Unsuppressing {display_name}...", flush=True)
+                            await member.edit(suppress=False)
+                            
+                            if member.voice and member.voice.channel:
+                                print(f"[AUDIO] Playing pressed.mp3...", flush=True)
+                                await self.play_audio(member.voice.channel, "audio/pressed.mp3")
+    
+                            print(f"[SUCCESS] ✨ All actions completed for {display_name}!", flush=True)
+    
+                        else:
+                            print(f"[IGNORED] Status was {current_status_val}, ignoring hand raise.", flush=True)
+                    except Exception as inner_e:
+                        print(f"[CRITICAL LOGIC ERROR] {inner_e}", flush=True)
+                        traceback.print_exc()
+                    finally:
+                        db.close()
 
         except Exception as e:
             print(f"[EVENT ERROR] {e}", flush=True)
