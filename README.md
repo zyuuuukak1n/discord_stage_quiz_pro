@@ -1,5 +1,7 @@
 # 🎉 Discord Stage Quiz Pro (Stage Quiz Battle)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
 Discordの「ステージチャンネル」と「挙手機能」を早押しボタンとして活用する、プロフェッショナル仕様のリアルタイムクイズ大会システムです。
 FastAPIによる高速なバックエンド、Discord.pyによるBot制御、そしてWebSocketを利用したサイバーパンク風の配信画面（Audience View）が完全に同期して動作します。
 
@@ -108,5 +110,6 @@ CSVのフォーマット（ヘッダー行）は以下の通りです。
 - `quiz.db` : SQLiteデータベース（初回起動時に自動生成されます）
 - `run.py` : アプリケーションの起動エントリーポイント
 
-## 📄 License
-This project is open-source and available under the MIT License.
+## 📄 ライセンス
+
+このプロジェクトは [MIT License](LICENSE) のもとで公開されています。詳細については、リポジトリ内の `LICENSE` ファイルをご確認ください。
